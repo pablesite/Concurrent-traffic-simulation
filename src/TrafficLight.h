@@ -38,7 +38,7 @@ private:
 
 
 
-class TrafficLight : TrafficObject
+class TrafficLight : public TrafficObject
 {
 public:
     // constructor / desctructor
