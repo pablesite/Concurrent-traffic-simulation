@@ -1,5 +1,7 @@
 #include <iostream>
 #include <random>
+#include <chrono>
+#include <future>
 #include "TrafficLight.h"
 
 /* Implementation of class "MessageQueue" */
@@ -40,19 +42,49 @@ TrafficLightPhase TrafficLight::getCurrentPhase()
 {
     return _currentPhase;
 }
-
+*/
 void TrafficLight::simulate()
 {
     // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
+    threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
+
 
 // virtual function which is executed in a thread
 void TrafficLight::cycleThroughPhases()
 {
-    // FP.2a : Implement the function with an infinite loop that measures the time between two loop cycles 
-    // and toggles the current phase of the traffic light between red and green and sends an update method 
-    // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
-    // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
-}
+    // FP.2a : Implement the function with an infinite loop that measures the time between two loop cycles
+    // and toggles the current phase of the traffic light between red and green and sends an update method
+    // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds.
+    // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles.
 
-*/
+    double cycleDuration = rand() % 2000 + 4000; // duration of a single simulation cycle in ms
+    std::chrono::time_point<std::chrono::system_clock> lastUpdate;
+
+    // init stop watch
+    lastUpdate = std::chrono::system_clock::now();
+    while (true)
+    {
+        // sleep at every iteration to reduce CPU usage
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        // compute time difference to stop watch
+        long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
+        if (timeSinceLastUpdate >= cycleDuration)
+        {
+            // toggle the current phase of the traffic light
+            (_currentPhase == red) ? _currentPhase = green : _currentPhase = red;
+            // sends an update method to the message queue using move semantics
+            /*
+            std::shared_ptr<MessageQueue<TrafficLightPhase>> queue(new MessageQueue<TrafficLightPhase>);
+            std::future<void> future;
+            future = std::async(std::launch::async, &MessageQueue<TrafficLightPhase>::send, queue, std::move(_currentPhase); 
+            */
+    
+            // reset stop watch for next cycle
+            lastUpdate = std::chrono::system_clock::now();
+            // new random cycleDuration is calculated
+            cycleDuration = rand() % 2000 + 4000;
+        }
+    } // eof simulation loop
+}
