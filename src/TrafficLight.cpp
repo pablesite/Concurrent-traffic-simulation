@@ -14,20 +14,30 @@ T MessageQueue<T>::receive()
     // to wait for and receive new messages and pull them from the queue using move semantics. 
     // The received object should then be returned by the receive function. 
 }
-
+*/
 template <typename T>
 void MessageQueue<T>::send(T &&msg)
 {
-    // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
+    // (DONE) FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
+
+    // lock shared data
+    std::lock_guard<std::mutex> lck(_mtx);
+
+    // add a new message to the queue
+    _queue.push_back(std::move(msg));
+    
+    // send a notification
+    _cdt.notify_one();
 }
-*/
+
 
 /* Implementation of class "TrafficLight" */
 
 /* 
 TrafficLight::TrafficLight()
 {
+    _mq_ptr = new MessageQueue<TrafficLightPhase>;//CHECK THIS
     _currentPhase = TrafficLightPhase::red;
 }
 
@@ -45,7 +55,7 @@ TrafficLightPhase TrafficLight::getCurrentPhase()
 */
 void TrafficLight::simulate()
 {
-    // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
+    // (DONE) FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
     threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
 
@@ -53,7 +63,7 @@ void TrafficLight::simulate()
 // virtual function which is executed in a thread
 void TrafficLight::cycleThroughPhases()
 {
-    // FP.2a : Implement the function with an infinite loop that measures the time between two loop cycles
+    // FP.2a (Still not ready): Implement the function with an infinite loop that measures the time between two loop cycles
     // and toggles the current phase of the traffic light between red and green and sends an update method
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds.
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles.
@@ -80,6 +90,8 @@ void TrafficLight::cycleThroughPhases()
             std::future<void> future;
             future = std::async(std::launch::async, &MessageQueue<TrafficLightPhase>::send, queue, std::move(_currentPhase); 
             */
+           std::async(std::launch::async, &MessageQueue<TrafficLightPhase>::send, _mq_ptr, std::move(_currentPhase));
+           
     
             // reset stop watch for next cycle
             lastUpdate = std::chrono::system_clock::now();
