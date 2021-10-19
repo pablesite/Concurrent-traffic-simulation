@@ -6,64 +6,59 @@
 
 /* Implementation of class "MessageQueue" */
 
-
 template <typename T>
 T MessageQueue<T>::receive()
 {
-    // (DONE) FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
-    // to wait for and receive new messages and pull them from the queue using move semantics. 
-    // The received object should then be returned by the receive function. 
+    // (DONE) FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait()
+    // to wait for and receive new messages and pull them from the queue using move semantics.
+    // The received object should then be returned by the receive function.
 
-    std::unique_lock<std::mutex> lck(_mtx);
-    _cdt.wait(lck, [this]{ return !_queue.empty(); });
-    
-    T msg = _queue.front();
-    
-    _queue.pop_front();
-    
+    std::unique_lock<std::mutex> lck(_mtxMQ);
+    _cdtMQ.wait(lck, [this] { return !_queue.empty(); });
+
+    // return msg and remove from _queue
+    T msg = std::move(_queue.back());
+    _queue.pop_back();
+
     return msg;
 }
 
 template <typename T>
 void MessageQueue<T>::send(T &&msg)
 {
-    // (DONE) FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
+    // (DONE) FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex>
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
 
     // lock shared data
-    std::lock_guard<std::mutex> lck(_mtx);
+    std::lock_guard<std::mutex> lck(_mtxMQ);
+
+    // before add a msg in the queue, clear it for having only last Traffic Light Phase in _queue
+    _queue.clear();
 
     // add a new message to the queue
     _queue.push_back(std::move(msg));
-    
-    // send a notification
-    _cdt.notify_one();
-}
 
+    // send a notification
+    _cdtMQ.notify_one();
+}
 
 /* Implementation of class "TrafficLight" */
 TrafficLight::TrafficLight()
 {
-    
-    _mq_ptr = std::make_shared<MessageQueue<TrafficLightPhase>>();//CHECK THIS (It is necessary?)
+    _mqTFP = std::make_shared<MessageQueue<TrafficLightPhase>>(); //CHECK THIS (It is necessary?)
     _currentPhase = TrafficLightPhase::red;
 }
 
 void TrafficLight::waitForGreen()
 {
-    // (DONE) FP.5b : add the implementation of the method waitForGreen, in which an infinite while-loop 
-    // runs and repeatedly calls the receive function on the message queue. 
+    // (DONE) FP.5b : add the implementation of the method waitForGreen, in which an infinite while-loop
+    // runs and repeatedly calls the receive function on the message queue.
     // Once it receives TrafficLightPhase::green, the method returns.
-    
-    TrafficLightPhase tlp = red;
 
     while (true)
     {
-        tlp = _mq_ptr->receive();
-
-        if (tlp == green){
+        if (_mqTFP->receive() == green)
             return;
-        } 
     }
 }
 
@@ -74,10 +69,9 @@ TrafficLightPhase TrafficLight::getCurrentPhase()
 
 void TrafficLight::simulate()
 {
-    // (DONE) FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
+    // (DONE) FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class.
     threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
-
 
 // virtual function which is executed in a thread
 void TrafficLight::cycleThroughPhases()
@@ -102,11 +96,14 @@ void TrafficLight::cycleThroughPhases()
         if (timeSinceLastUpdate >= cycleDuration)
         {
             // toggle the current phase of the traffic light
-            (_currentPhase == red) ? _currentPhase = green : _currentPhase = red;
+            _currentPhase = _currentPhase == red ? green : red;
+
             // sends an update method to the message queue using move semantics
-            _mq_ptr->send(std::move(_currentPhase));
+            _mqTFP->send(std::move(_currentPhase));
+
             // reset stop watch for next cycle
             lastUpdate = std::chrono::system_clock::now();
+
             // new random cycleDuration is calculated
             cycleDuration = rand() % 2000 + 4000;
         }

@@ -12,14 +12,14 @@
 
 int WaitingVehicles::getSize()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutexWV);
 
     return _vehicles.size();
 }
 
 void WaitingVehicles::pushBack(std::shared_ptr<Vehicle> vehicle, std::promise<void> &&promise)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutexWV);
 
     _vehicles.push_back(vehicle);
     _promises.push_back(std::move(promise));
@@ -27,7 +27,7 @@ void WaitingVehicles::pushBack(std::shared_ptr<Vehicle> vehicle, std::promise<vo
 
 void WaitingVehicles::permitEntryToFirstInQueue()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutexWV);
 
     // get entries from the front of both queues
     auto firstPromise = _promises.begin();
@@ -46,7 +46,7 @@ void WaitingVehicles::permitEntryToFirstInQueue()
 Intersection::Intersection()
 {
     _type = ObjectType::objectIntersection;
-    _isBlocked = false;
+    _isBlocked = false; //y esto???
 }
 
 void Intersection::addStreet(std::shared_ptr<Street> street)
@@ -72,8 +72,9 @@ std::vector<std::shared_ptr<Street>> Intersection::queryStreets(std::shared_ptr<
 // adds a new vehicle to the queue and returns once the vehicle is allowed to enter
 void Intersection::addVehicleToQueue(std::shared_ptr<Vehicle> vehicle)
 {
-    std::unique_lock<std::mutex> lck(_mtx);
-    std::cout << "Intersection #" << _id << "::addVehicleToQueue: thread id = " << std::this_thread::get_id() << std::endl;
+    std::unique_lock<std::mutex> lck(_mtxTerm);
+    std::cout << "Intersection #" << _id << "::addVehicleToQueue: "
+              << "Vehicle #" << vehicle->getID() << " thread id = " << std::this_thread::get_id() << std::endl;
     lck.unlock();
 
     // add new vehicle to the end of the waiting line
@@ -84,13 +85,12 @@ void Intersection::addVehicleToQueue(std::shared_ptr<Vehicle> vehicle)
     // wait until the vehicle is allowed to enter
     ftrVehicleAllowedToEnter.wait();
     lck.lock();
-    std::cout << "Intersection #" << _id << ": Vehicle #" << vehicle->getID() << " is granted entry." << std::endl;
-    
+
     // (DONE) FP.6b : use the methods TrafficLight::getCurrentPhase and TrafficLight::waitForGreen to block the execution until the traffic light turns green.
-    if( _trafficLight.getCurrentPhase() == red )
-    {
+    if (_trafficLight.getCurrentPhase() == red)
         _trafficLight.waitForGreen();
-    }
+
+    std::cout << "Intersection #" << _id << ": Vehicle #" << vehicle->getID() << " is granted entry." << std::endl;
 
     lck.unlock();
 }
@@ -144,12 +144,9 @@ void Intersection::processVehicleQueue()
 
 bool Intersection::trafficLightIsGreen()
 {
-   // please include this part once you have solved the final project tasks
-   
-   if (_trafficLight.getCurrentPhase() == TrafficLightPhase::green)
-       return true;
-   else
-       return false;
-   
-  //return true; // makes traffic light permanently green
-} 
+    // please include this part once you have solved the final project tasks
+
+    return _trafficLight.getCurrentPhase() == green;
+
+    //return true; // makes traffic light permanently green
+}
